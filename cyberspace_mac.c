@@ -1,7 +1,8 @@
-///usr/bin/gcc cyberspace_mac.c && ./a.out;  rm a.out;  return 0
+///usr/bin/gcc cyberspace_mac.c && ./a.out;  rm a.out;  exit 0
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #define ATTRIB0LEN 22
 #define ATTRIB1LEN 15
 #define ATTRIB2LEN 6
@@ -36,7 +37,7 @@ void disp_host(struct host *target,struct host hosts[NUMHOSTS]){
 	printf("Links:\n");
 	//sleeph(500);
 	for(i = 0;i < 4;i++){
-		if(target->links[i] != -1){
+		if(target->links[i]){
 			r = 0;//rand()%3;
 			printf("%d (%s)\n",i,hosts[target->links[i]].attrib[r]);	
 			//sleeph(500);
@@ -47,7 +48,7 @@ void disp_host(struct host *target,struct host hosts[NUMHOSTS]){
 
 void clear_screen(void)
 {
-	int i = 10; // lowered to avoid missing content
+	int i = 50; 
 	while(i--) printf("\n");
 	return;
 }
@@ -62,6 +63,17 @@ void enum_options(char *a0[ATTRIB0LEN],char *a1[ATTRIB0LEN],char *a2[ATTRIB0LEN]
 	
 	return;
 };
+
+// get input without delay
+char get_input(){
+    system ("/bin/stty raw");
+    char input = '0';
+    while((input=getchar()) == 0) {
+              putchar(input);
+    }
+    system ("/bin/stty cooked");
+    return input;
+}
 
 int main(int argc, char **argv)
 {
@@ -94,7 +106,9 @@ int main(int argc, char **argv)
 		r = rand()%ATTRIB2LEN;
 		hosts[i].attrib[2] = attrib2s[r];
 
-		hosts[i].links[0] = hosts[i].links[1] = hosts[i].links[2] = hosts[i].links[3] = -1;
+        for (int host_idx = 0; host_idx < 4; ++host_idx) {
+            hosts[i].links[host_idx] = 0;
+        }
 		hosts[i].collectables = rand()%2;	
 	};
 
@@ -124,55 +138,68 @@ int main(int argc, char **argv)
 			} 
 		}
 	}
+
 /*		
+	for(int i = 0;i < NUMHOSTS;i++){
+        struct host * host_one = &hosts[i];
+        if (!host_one->links[0]) {
+            printf("no links - %s %s %s\n",
+                hosts[i].attrib[0],
+                hosts[i].attrib[1],
+                hosts[i].attrib[2]);
+        }
+    }
 	for(i = 0;i < NUMHOSTS;i++){
 		disp_host(&hosts[i],hosts);
 	};
 */
-	int curr_host = 0;
-	int prev_host = 0;
+	int curr_host_id = 0;
+	int prev_host_id = 0;
 	char input = ' ';
 
 	printf("press # to follow link\npress b to return to previous host\n");
 	printf("press g to specify host id\npress h to hack\npress l to list botnet\n");
-	getchar();
+	printf("\npress any key to continue...\n");
+	get_input();
 	// Main Game Loop
 	while(input != 'q'){
+        struct host * curr_host = &hosts[curr_host_id];
 		clear_screen();
 		sleeph(500);
 
-		printf("Host #%d\n",curr_host);
+		printf("Host #%d\n",curr_host_id);
 
 		sleeph(500);
-		
-		disp_host(&hosts[curr_host],hosts);
-		sleeph(500);
-        input = getchar();
 
 		
-		if(input == '0'){
-			prev_host = curr_host;
-			curr_host = hosts[curr_host].links[0];
-		} else if(input == '1'){
-			prev_host = curr_host;
-			curr_host = hosts[curr_host].links[1];
-		} else if(input == '2'){
-			prev_host = curr_host;
-			curr_host = hosts[curr_host].links[2];
-		} else if(input == '3'){
-			prev_host = curr_host;
-			curr_host = hosts[curr_host].links[3];
+		disp_host(&hosts[curr_host_id],hosts);
+		sleeph(500);
+        input = get_input();
+		
+		if(input == '0' && curr_host->links[0]){
+			prev_host_id = curr_host_id;
+			curr_host_id = curr_host->links[0];
+		} else if(input == '1' && curr_host->links[1]){
+			prev_host_id = curr_host_id;
+			curr_host_id = curr_host->links[1];
+		} else if(input == '2' && curr_host->links[2]){
+			prev_host_id = curr_host_id;
+			curr_host_id = curr_host->links[2];
+		} else if(input == '3' && curr_host->links[3]){
+			prev_host_id = curr_host_id;
+			curr_host_id = curr_host->links[3];
 		} else if(input == 'b'){
-			curr_host = prev_host;
+			curr_host_id = prev_host_id;
 		} else if(input == 'g'){
-			prev_host = curr_host;
+			prev_host_id = curr_host_id;
 			int code;
 			printf("Enter code:");
 			scanf("%d",&code);
-			if(code < NUMHOSTS) curr_host = code;
+			if(code < NUMHOSTS) curr_host_id = code;
 		} else if(input == 'h'){
-			if(hosts[curr_host].collectables == 1){
-				printf("\n\n\n\n\n\n");
+			if(curr_host->collectables == 1){
+                clear_screen();
+				printf("\033[%dB", 40); // down
                 for (int clock = 0; clock < 100; ++clock) {
                     for (int dot = 0; dot < clock; ++dot) {
                         int rand_position = rand() %40;
@@ -185,8 +212,8 @@ int main(int argc, char **argv)
                     }
                     printf("\33[A");
                 }
-				printf("hacking. (hold enter)");
-                    printf("\33[A");
+				printf("hacking...");
+                    //printf("\33[A");
                 for (int clock = 0; clock < 100; ++clock) {
                     for (int dot = 0; dot < clock; ++dot) {
                         int rand_position = rand() %40;
@@ -194,22 +221,21 @@ int main(int argc, char **argv)
                         printf("\033[%dA", rand_position); // up
                         printf("\033[%dC", rand() %220); // right
                         printf("%c", 33 + rand() % 44);
-                        printf("\033[%dB", rand_position);
+                        printf("\033[%dB", rand_position); // down
                         printf("\r"); // all left
                     }
-                    getchar();
+					get_input();
                     printf("\33[A");
                 }
 
                 printf("Success\n");
                 printf("press c to continue");
                 while(input != 'c') {
-                    input = getchar();
-                    printf("\33[%dA", 1); // up
+					input = get_input();
                 }
 		
-				hacks += hosts[curr_host].collectables;
-				hosts[curr_host].collectables = 2;
+				hacks += curr_host->collectables;
+				curr_host->collectables = 2;
 				printf("Hacked.");
 				sleeph(1000);
 				printf("\nYour botnet size: %d\n",hacks);
@@ -219,6 +245,7 @@ int main(int argc, char **argv)
 			}
             else {
 				printf("Nothing found.");
+                get_input();
             }
                 
 		} else if(input == 'l'){
@@ -230,7 +257,7 @@ int main(int argc, char **argv)
 				  printf("#%d: %s %s %s\n",i,hosts[i].attrib[0],hosts[i].attrib[1],hosts[i].attrib[2]);
 				};
 			};
-			getchar();
+			get_input();
 		} else if(input == 'q'){
 			/*
 			savegame = fopen("cyberspacehunt_save","w");
@@ -239,6 +266,6 @@ int main(int argc, char **argv)
 			*/
 		};
 		
-	};
+	}// game loop
 	return 0;
 }
